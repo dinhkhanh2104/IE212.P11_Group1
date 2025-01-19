@@ -81,6 +81,6 @@ class TrafficViolationDetector:
 
 
 if __name__ == "__main__":
-    config_file_path = "D:\\UNIVERSITY\\FinalYear\\BigData\\Traffic_Violation_Detection\\config\\kafka_config.yml"
+    config_file_path = "./configs/kafka_config.yml"
     detector = TrafficViolationDetector(config_file_path)
     detector.run()

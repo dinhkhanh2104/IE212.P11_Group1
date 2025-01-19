@@ -1,3 +1,4 @@
+- Navigation to your Kafka installation folder first.
 - Run zookeeper:
     bin\windows\zookeeper-server-start.bat config\zookeeper.properties
 - Run kafka server:

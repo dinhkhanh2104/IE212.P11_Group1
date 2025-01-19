@@ -2,6 +2,7 @@ from kafka import KafkaProducer
 import yaml
 import cv2
 import time
+import os
 
 def load_kafka_config(config_path):
     with open(config_path, 'r') as file:
@@ -27,11 +28,26 @@ class TrafficViolationProducer:
     def close(self):
         self.producer.close()
 
+def handle_find_input_video(base_path):
+    extensions = ['.MOV', '.mp4']
+    for ext in extensions:
+        video_path = base_path + ext
+        if os.path.exists(video_path):
+            return video_path
+    return None
+
 if __name__ == '__main__':
-    config_file_path = "D:\\UNIVERSITY\\FinalYear\\BigData\\Traffic_Violation_Detection\\config\\kafka_config.yml"
+    config_file_path = "./configs/kafka_config.yml"
+    base_video_path = "../input"
+
+    video_path = handle_find_input_video(base_video_path)
+    if video_path is None:
+        print(f"Error: No video file found")
+        exit()
+
     producer = TrafficViolationProducer(config_file_path)
 
-    video = cv2.VideoCapture("D:\\UNIVERSITY\\FinalYear\\BigData\\input.MOV")
+    video = cv2.VideoCapture(video_path)
     if not video.isOpened():
         print("Error: Cannot open video file")
         exit()
@@ -52,11 +68,9 @@ if __name__ == '__main__':
  
         time.sleep(0.001)
         
-
         # Thoát khi nhấn phím 'q'
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-
 
     video.release()
     cv2.destroyAllWindows()

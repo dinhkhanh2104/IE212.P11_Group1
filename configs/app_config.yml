@@ -1,0 +1,12 @@
+app_name: "IE212.P11_Group1"
+version: "1.0.0"
+data_path: "./data"
+video_input_path: "../videos_input"
+video_output_path: "../videos_output"
+image_output_path: "./data/images_output"
+logging:
+  config_file: "./configs/logging_config.yml"
+kafka:
+  config_file: "./configs/kafka_config.yml"
+model:
+  config_file: "./configs/model_config.yml"

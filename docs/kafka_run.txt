@@ -5,5 +5,5 @@
 - Create needed topics:
     bin\windows\kafka-topics.bat --create --topic traffic_violation_video_stream --bootstrap-server localhost:9092
     bin\windows\kafka-topics.bat --create --topic result --bootstrap-server localhost:9092
-- List exiting topics:
+- List existing topics:
     bin\windows\kafka-topics.bat --list --bootstrap-server localhost:9092

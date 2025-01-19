@@ -6,8 +6,7 @@ import os
 
 def load_kafka_config(config_path):
     with open(config_path, 'r') as file:
-        kafka_config = yaml.safe_load(file)
-    return kafka_config
+        return yaml.safe_load(file)
 
 class TrafficViolationProducer:
     def __init__(self, config_path):
@@ -20,17 +19,15 @@ class TrafficViolationProducer:
         )
     
     def send_frame(self, frame, key):
-        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 50]
-        _, buffer = cv2.imencode('.jpg', frame, encode_param)
+        _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
         self.producer.send(self.topic, key=key, value=buffer.tobytes())
         self.producer.flush()
 
     def close(self):
         self.producer.close()
 
-def handle_find_input_video(base_path):
-    extensions = ['.MOV', '.mp4']
-    for ext in extensions:
+def find_input_video(base_path):
+    for ext in ['.MOV', '.mp4']:
         video_path = base_path + ext
         if os.path.exists(video_path):
             return video_path
@@ -40,9 +37,9 @@ if __name__ == '__main__':
     config_file_path = "./configs/kafka_config.yml"
     base_video_path = "../input"
 
-    video_path = handle_find_input_video(base_video_path)
+    video_path = find_input_video(base_video_path)
     if video_path is None:
-        print(f"Error: No video file found")
+        print("Error: No video file found")
         exit()
 
     producer = TrafficViolationProducer(config_file_path)
@@ -60,17 +57,15 @@ if __name__ == '__main__':
 
         frame = cv2.resize(frame, (720, 720))
         
-        # Hiển thị frame
-        # cv2.imshow("Video Frame", frame)
-        
-        # Gửi frame qua Kafka
+        # Send frame to Kafka
         producer.send_frame(frame, "frame")
  
         time.sleep(0.001)
         
-        # Thoát khi nhấn phím 'q'
+        # Exit if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     video.release()
     cv2.destroyAllWindows()
+    producer.close()

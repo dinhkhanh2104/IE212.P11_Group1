@@ -2,7 +2,7 @@ from kafka import KafkaConsumer, KafkaProducer
 import yaml
 import cv2
 import numpy as np
-from ultralytics import YOLOv10
+from ultralytics import YOLO
 import supervision as sv
 
 def load_kafka_config(config_path):
@@ -27,7 +27,7 @@ class TrafficViolationDetector:
             value_serializer=lambda v: v,
             key_serializer=lambda v: v if isinstance(v, bytes) else v.encode('utf-8')
         )
-        self.model = YOLOv10(self.config['model_path'])
+        self.model = YOLO(self.config['model_path'])
         self.bounding_box_annotator = sv.BoundingBoxAnnotator()
         self.label_annotator = sv.LabelAnnotator()
         print(f"Initialized Kafka consumer for topic: {self.topic}")
@@ -49,21 +49,28 @@ class TrafficViolationDetector:
         annotated_frame = self.bounding_box_annotator.annotate(scene=frame, detections=detections)
         annotated_frame = self.label_annotator.annotate(annotated_frame, detections)
 
-        return annotated_frame, violation_detected
+        # Handle draw border to violated objects
+        mask = np.isin(detections.class_id, violation_classes)
+        violation_detection = detections[mask]
+        # violation_detection.class_id = violation_detected
+        violation_object_frame = self.bounding_box_annotator.annotate(scene=frame, detections=violation_detection)
+        violation_object_frame = self.label_annotator.annotate(violation_object_frame, violation_detection)
+
+        return annotated_frame, violation_detected, violation_object_frame
 
     def run(self):
         print("Starting to consume messages from Kafka...")
         for message in self.consumer:
             frame_bytes = message.value
             print("Frame received")
-            annotated_frame, violation_detected = self.process_frame(frame_bytes)
+            annotated_frame, violation_detected, violation_object_frame = self.process_frame(frame_bytes)
 
             if annotated_frame is not None:
                 cv2.imshow("Traffic Violation Detection", annotated_frame)
 
                 if violation_detected:
                     print("Violation detected!")
-                    self.producer.send(self.result_topic, key=message.key, value=frame_bytes + b'|violation')
+                    self.producer.send(self.result_topic, key=message.key, value=violation_object_frame + b'|violation')
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break

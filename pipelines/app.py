@@ -8,7 +8,8 @@ from pymongo import MongoClient
 client = MongoClient('localhost', 27017)
 db = client['traffic_violation']
 collection = db['violations']
-print("Connected to MongoDB successfully")
+collection.delete_many({})
+print("Connected to MongoDB successfully")    
 
 def save_to_mongodb(frame, frame_id):
     _, buffer = cv2.imencode('.jpg', frame)
@@ -46,7 +47,7 @@ try:
             frame = cv2.imdecode(np.frombuffer(frame_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
             print("Violation detected")
             if frame is not None:
-                if cnt % 30 == 0:
+                if cnt % 10 == 0:
                     try:
                         save_to_mongodb(frame, frame_id)
                     except Exception as e:

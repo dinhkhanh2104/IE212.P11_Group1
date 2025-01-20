@@ -45,16 +45,8 @@ Ensure you have the following installed:
      ```
    - Or follow instructions from "setup_kafka_instruction.txt" to start Kafka manually.
 
-### Configuration
-
-All configurations are stored in the `config` directory. Key configuration files include:
-
-- `kafka_config.yml`: Kafka producer and consumer settings.
-- `logging_config.yml`: Logging settings.
-
-Ensure you update these files according to your environment.
-
 ### Executing Program
+Before running the commands, ensure that your virtual environment is activated.
 
 1. **Run the video stream producer**:
 

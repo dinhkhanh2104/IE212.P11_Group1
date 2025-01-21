@@ -51,7 +51,7 @@ Before running the commands, ensure that your virtual environment is activated.
 1. **Run the video stream producer**:
 
    ```sh
-   python ./pipelines/kafka_producer.py
+   python ./pipelines/producer.py
    ```
 
 2. **Run the Spark consumer (read Kafka-stream and make predictions)**:
@@ -63,7 +63,7 @@ Before running the commands, ensure that your virtual environment is activated.
 3. **Run the main consumer (display predicted images and save to MongoDB)**:
 
    ```sh
-   python ./pipelines/app.py
+   python ./pipelines/consumer.py
    ```
 
 ## Common Issues

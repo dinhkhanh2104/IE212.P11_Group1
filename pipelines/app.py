@@ -3,11 +3,7 @@ import cv2
 import numpy as np
 import base64
 from pymongo import MongoClient
-import yaml
-
-def load_kafka_config(config_path):
-    with open(config_path, 'r') as file:
-        return yaml.safe_load(file)
+from utils import load_kafka_config
 
 # Load Kafka configuration
 config_file_path = "./configs/kafka_config.yml"
@@ -17,6 +13,8 @@ config = load_kafka_config(config_file_path)
 client = MongoClient('localhost', 27017)
 db = client['traffic_violation']
 collection = db['violations']
+collection.delete_many({})
+print("Connected to MongoDB successfully")    
 
 def save_to_mongodb(frame, frame_id):
     _, buffer = cv2.imencode('.jpg', frame)

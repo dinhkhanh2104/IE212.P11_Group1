@@ -1,12 +1,8 @@
 from kafka import KafkaProducer
-import yaml
 import cv2
 import time
 import os
-
-def load_kafka_config(config_path):
-    with open(config_path, 'r') as file:
-        return yaml.safe_load(file)
+from utils import load_kafka_config
 
 class TrafficViolationProducer:
     def __init__(self, config_path):
@@ -59,7 +55,6 @@ if __name__ == '__main__':
         
         # Send frame to Kafka
         producer.send_frame(frame, "frame")
- 
         time.sleep(0.001)
         
         # Exit if 'q' is pressed

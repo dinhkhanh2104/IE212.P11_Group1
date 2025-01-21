@@ -1,78 +1,86 @@
-from kafka import KafkaConsumer, KafkaProducer
+import findspark
+findspark.init()
+
 import yaml
-import cv2
 import numpy as np
 from ultralytics import YOLOv10
+import cv2
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import udf
+from pyspark.sql.types import BinaryType
 import supervision as sv
 
 def load_kafka_config(config_path):
     with open(config_path, 'r') as file:
-        return yaml.safe_load(file)
+        kafka_config = yaml.safe_load(file)
+    return kafka_config
 
-class TrafficViolationDetector:
-    def __init__(self, config_path):
-        self.config = load_kafka_config(config_path)
-        self.topic = self.config['consumer']['topic']
-        self.result_topic = self.config['producer1']['topic']
-        self.bootstrap_server = self.config['bootstrap_server']
-        self.consumer = KafkaConsumer(
-            self.topic,
-            bootstrap_servers=self.bootstrap_server,
-            auto_offset_reset='earliest',
-            enable_auto_commit=True,
-            value_deserializer=lambda value: value
-        )
-        self.producer = KafkaProducer(
-            bootstrap_servers=self.bootstrap_server,
-            value_serializer=lambda v: v,
-            key_serializer=lambda v: v if isinstance(v, bytes) else v.encode('utf-8')
-        )
-        self.model = YOLOv10(self.config['model_path'])
-        self.bounding_box_annotator = sv.BoundingBoxAnnotator()
-        self.label_annotator = sv.LabelAnnotator()
-        print(f"Initialized Kafka consumer for topic: {self.topic}")
-        print(f"Initialized Kafka producer for topic: {self.result_topic}")
+#Create spark session
+spark = SparkSession.builder \
+    .appName("TrafficViolationDetection") \
+    .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1")\
+    .getOrCreate()
 
-    def process_frame(self, frame_bytes):
-        frame = cv2.imdecode(np.frombuffer(frame_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
-        if frame is None:
-            print("Failed to decode frame")
-            return None, False
+model_path = '../data/models/best.pt'
+model = YOLOv10(model_path)
 
-        results = self.model(frame)[0]
-        detections = sv.Detections.from_ultralytics(results)
+# Define annotators
+bounding_box_annotator = sv.BoundingBoxAnnotator()
+label_annotator = sv.LabelAnnotator()
 
-        is_green = 3 in detections.class_id
-        violation_classes = [0, 6] if is_green else [6]
-        violation_detected = any(cls in detections.class_id for cls in violation_classes)
+def process_frame_udf(frame_bytes):
+    frame = np.frombuffer(frame_bytes, dtype=np.uint8)
+    frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
+    if frame is None:
+        return []
+    
+    results = model(frame)[0]
+    detections = sv.Detections.from_ultralytics(results)
+    
+# There couldn't be any BLOW THE RED LIGHT class if there is a GREEN class
+    is_green = False
+    #Check if green is in class_id
+    if (3 in detections.class_id) or (7 not in detections.class_id) or (8 not in detections.class_id):
+        is_green = True
 
-        annotated_frame = self.bounding_box_annotator.annotate(scene=frame, detections=detections)
-        annotated_frame = self.label_annotator.annotate(annotated_frame, detections)
+    if is_green:
+        violation_detections = [class_id for class_id in detections.class_id if class_id == 0 or class_id == 6]
+    else:
+        violation_detections = [class_id for class_id in detections.class_id if class_id == 6]
 
-        return annotated_frame, violation_detected
+    annotated_frame = bounding_box_annotator.annotate(scene=frame, detections=detections)
+    annotated_frame = label_annotator.annotate(annotated_frame, detections)
 
-    def run(self):
-        print("Starting to consume messages from Kafka...")
-        for message in self.consumer:
-            frame_bytes = message.value
-            print("Frame received")
-            annotated_frame, violation_detected = self.process_frame(frame_bytes)
+    # Encode annotated frame as JPEG
+    _, buffer = cv2.imencode('.jpg', annotated_frame)
+    frame_bytes = buffer.tobytes()
 
-            if annotated_frame is not None:
-                cv2.imshow("Traffic Violation Detection", annotated_frame)
+    # Add a flag to indicate if violation is detected
+    if violation_detections:
+        frame_bytes += b'|violation'
+    
+    return frame_bytes
 
-                if violation_detected:
-                    print("Violation detected!")
-                    self.producer.send(self.result_topic, key=message.key, value=frame_bytes + b'|violation')
+process_udf = udf(process_frame_udf, BinaryType())
 
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+spark_df = spark.readStream.format("kafka")\
+    .option("kafka.bootstrap.servers", "localhost:9092")\
+    .option("subscribe", "traffic_violation_video_stream")\
+    .option("startingOffsets", "earliest")\
+    .load()
 
-        self.consumer.close()
-        self.producer.close()
-        cv2.destroyAllWindows()
+#apply udf on spark_df
+spark_df = spark_df.withColumn("value", process_udf("value"))
 
-if __name__ == "__main__":
-    config_file_path = "./configs/kafka_config.yml"
-    detector = TrafficViolationDetector(config_file_path)
-    detector.run()
+# stream ra Kafka
+query = spark_df.writeStream \
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", "localhost:9092") \
+    .option("topic", "result") \
+    .option("checkpointLocation", "../logs/checkpoint1") \
+    .start()
+
+query.awaitTermination()
+
+query.stop()            
+spark.stop()

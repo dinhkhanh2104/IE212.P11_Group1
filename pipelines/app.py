@@ -1,7 +1,6 @@
 from kafka import KafkaConsumer
 import cv2
 import numpy as np
-import time
 import base64
 from pymongo import MongoClient
 
@@ -52,20 +51,17 @@ try:
                         save_to_mongodb(frame, frame_id)
                     except Exception as e:
                         print(e)
-                # # cv2.imshow('Processed Video', frame)
-                # time.sleep(0.05)
-                # if cv2.waitKey(1) & 0xFF == ord('q'):
-                #     break
+                cv2.imshow('Processed Video', frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
             else:
                 print("No frame")
         else:
             frame = cv2.imdecode(np.frombuffer(frame_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
             if frame is not None:
-                ...
-                # cv2.imshow('Processed Video', frame)
-                # time.sleep(0.05)
-                # if cv2.waitKey(1) & 0xFF == ord('q'):
-                #     break
+                cv2.imshow('Processed Video', frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
             else:
                 print("No frame")
 except Exception as e:
